@@ -11,3 +11,4 @@ coverage
 .vagrant
 manifests/build
 .idea/
+*.egg-info/
