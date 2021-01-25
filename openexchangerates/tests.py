@@ -1,101 +1,61 @@
-import unittest
+import os
+from datetime import date
 from decimal import Decimal
 
-from httpretty import HTTPretty, httprettified
+import pytest
 
-import openexchangerates
+from openexchangerates.client import OpenExchangeRatesClient
 
-from datetime import date as Date
 
-class TestOpenExchangeRates(unittest.TestCase):
+TEST_API_KEY = os.getenv("TEST_API_KEY")
 
-    _FIXTURE_CURRENCIES = """{
+_FIXTURE_CURRENCIES = {
     "AED": "United Arab Emirates Dirham",
     "AFN": "Afghan Afghani",
-    "ALL": "Albanian Lek"
+    "ALL": "Albanian Lek",
 }
-"""
 
-    _FIXTURE_LATEST = """{
+_FIXTURE_HISTORICAL = {
     "disclaimer": "<Disclaimer data>",
     "license": "<License data>",
     "timestamp": 1358150409,
     "base": "USD",
     "rates": {
-        "AED": 3.666311,
-        "AFN": 51.2281,
-        "ALL": 104.748751
-    }
+        "AED": Decimal(3.672941),
+        "AFN": Decimal(51.374266),
+        "ALL": Decimal(104.3625),
+    },
 }
-"""
 
-    _FIXTURE_HISTORICAL = """{
-    "disclaimer": "<Disclaimer data>",
-    "license": "<License data>",
-    "timestamp": 1358150409,
-    "base": "USD",
-    "rates": {
-        "AED": 3.666311,
-        "AFN": 51.2281,
-        "ALL": 104.748751
-    }
-}
-"""
 
-    @httprettified
-    def test_historical(self):
-        """Tests openexchangerates.OpenExchangeRateClient.historical``"""
-        client = openexchangerates.OpenExchangeRatesClient('DUMMY_API_KEY')
-        date = Date.fromtimestamp(1358150409)
-        HTTPretty.register_uri(HTTPretty.GET, client.ENDPOINT_HISTORICAL %
-                               date.strftime("%Y-%m-%d"),
-                               body=self._FIXTURE_LATEST)
-        historical = client.historical(date)
-        self.assertIn('rates', historical)
+@pytest.mark.asyncio
+async def test_historical():
+    """Tests OpenExchangeRateClient.historical"""
+    float_eq = 0.0001
+    async with OpenExchangeRatesClient(TEST_API_KEY) as client:
+        day = date.fromtimestamp(_FIXTURE_HISTORICAL['timestamp'])
+        historical = await client.historical(day)
         rates = historical['rates']
-        self.assertEqual(len(rates), 3)
-        self.assertIn('AED', rates)
-        self.assertEqual(rates['AED'], Decimal('3.666311'))
-        self.assertIn('AFN', rates)
-        self.assertEqual(rates['AFN'], Decimal('51.2281'))
-        self.assertIn('ALL', rates)
-        self.assertEqual(rates['ALL'], Decimal('104.748751'))
+        assert (rates['AED'] - _FIXTURE_HISTORICAL['rates']['AED']) < float_eq
+        assert (rates['AFN'] == _FIXTURE_HISTORICAL['rates']['AFN']) < float_eq
+        assert (rates['ALL'] == _FIXTURE_HISTORICAL['rates']['ALL']) < float_eq
 
-    @httprettified
-    def test_currencies(self):
-        """Tests ``openexchangerates.OpenExchangeRateClient\.currencies``"""
-        client = openexchangerates.OpenExchangeRatesClient('DUMMY_API_KEY')
-        HTTPretty.register_uri(HTTPretty.GET, client.ENDPOINT_CURRENCIES,
-                               body=self._FIXTURE_CURRENCIES)
-        currencies = client.currencies()
-        self.assertEqual(len(currencies), 3)
-        self.assertIn('AED', currencies)
-        self.assertIn('AFN', currencies)
-        self.assertIn('ALL', currencies)
+@pytest.mark.asyncio
+async def test_currencies():
+    """Tests OpenExchangeRateClient.currencies"""
+    async with OpenExchangeRatesClient(TEST_API_KEY) as client:
+        currencies = await client.currencies()
+        assert 'AED' in currencies
+        assert 'AFN' in currencies
+        assert 'ALL' in currencies
 
-    @httprettified
-    def test_latest(self):
-        """Tests openexchangerates.OpenExchangeRateClient.latest``"""
-        client = openexchangerates.OpenExchangeRatesClient('DUMMY_API_KEY')
-        HTTPretty.register_uri(HTTPretty.GET, client.ENDPOINT_LATEST,
-                               body=self._FIXTURE_LATEST)
-        latest = client.latest()
-        self.assertIn('rates', latest)
+
+@pytest.mark.asyncio
+async def test_latest():
+    """Tests OpenExchangeRateClient.latest``"""
+    async with OpenExchangeRatesClient(TEST_API_KEY) as client:
+        latest = await client.latest()
         rates = latest['rates']
-        self.assertEqual(len(rates), 3)
-        self.assertIn('AED', rates)
-        self.assertEqual(rates['AED'], Decimal('3.666311'))
-        self.assertIn('AFN', rates)
-        self.assertEqual(rates['AFN'], Decimal('51.2281'))
-        self.assertIn('ALL', rates)
-        self.assertEqual(rates['ALL'], Decimal('104.748751'))
-
-    @httprettified
-    def test_exception(self):
-        """Tests ``openexchangerates.OpenExchangeRateClientException``"""
-        client = openexchangerates.OpenExchangeRatesClient('DUMMY_API_KEY')
-        HTTPretty.register_uri(HTTPretty.GET, client.ENDPOINT_LATEST,
-                               status=404)
-        with(self.assertRaises(
-                openexchangerates.OpenExchangeRatesClientException)) as e:
-            client.latest()
+        assert 'AED' in rates
+        assert 'AFN' in rates
+        assert 'ALL' in rates
