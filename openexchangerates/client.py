@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 from functools import partial
+from time import time
 from typing import Dict, Union
 
 import aiohttp
@@ -21,10 +22,14 @@ class OpenExchangeRatesClient(object):
     ENDPOINT_CURRENCIES = BASE_URL + '/currencies.json'
     ENDPOINT_HISTORICAL = BASE_URL + '/historical/{}.json'
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, update_interval: int = 3600):
         """Convenient constructor"""
         self.api_key = api_key
         self.session = aiohttp.ClientSession(json_serialize=json.dumps)
+        self.update_interval = update_interval
+        self.cache_latest = {}
+        self.cache_currencies = {}
+        self.cache_historical = {}
 
     async def latest(self, base: str = 'USD') -> Dict[str, Union[str, int, Dict[str, Decimal]]]:
         """Fetches latest exchange rate data from service
@@ -45,14 +50,17 @@ class OpenExchangeRatesClient(object):
                 }
             }
         """
+        if self.cache_latest.get("timestamp", 0) - time() < self.update_interval:
+            return self.cache_latest
         async with self.session.get(
                 self.ENDPOINT_LATEST,
                 params={'base': base, 'app_id': self.api_key}
         ) as response:
-            result_json = await response.json(loads=loads)
+            result = await response.json(loads=loads)
             if not response.ok:
-                raise OpenExchangeRatesClientException(result_json)
-            return result_json
+                raise OpenExchangeRatesClientException(result)
+            self.cache_latest = result
+            return result
 
     async def currencies(self) -> Dict[str, str]:
         """Fetches current currency data of the service
@@ -73,14 +81,17 @@ class OpenExchangeRatesClient(object):
             ...
         }
         """
+        if len(self.cache_currencies) != 0:
+            return self.cache_currencies
         async with self.session.get(
                 self.ENDPOINT_CURRENCIES,
                 params={'app_id': self.api_key}
         ) as response:
-            result_json = await response.json(loads=json.loads)
+            result = await response.json(loads=json.loads)
             if not response.ok:
-                raise OpenExchangeRatesClientException(result_json)
-            return result_json
+                raise OpenExchangeRatesClientException(result)
+            self.cache_currencies = result
+            return result
 
     async def historical(self, day: date, base: str = 'USD') -> Dict[str, Union[str, int, Dict[str, Decimal]]]:
         """Fetches historical exchange rate data from service
@@ -101,14 +112,18 @@ class OpenExchangeRatesClient(object):
                 }
             }
         """
-        async with self.session.get(
-            self.ENDPOINT_HISTORICAL.format(day.strftime("%Y-%m-%d")),
-            params={'base': base, 'app_id': self.api_key}
-        ) as response:
-            result_json = await response.json(loads=loads)
-            if not response.ok:
-                raise OpenExchangeRatesClientException(result_json)
-            return result_json
+        try:
+            return self.cache_historical[day.toordinal()]
+        except KeyError:
+            async with self.session.get(
+                self.ENDPOINT_HISTORICAL.format(day.strftime("%Y-%m-%d")),
+                params={'base': base, 'app_id': self.api_key}
+            ) as response:
+                result_json = await response.json(loads=loads)
+                if not response.ok:
+                    raise OpenExchangeRatesClientException(result_json)
+                self.cache_historical[day.toordinal()] = result_json
+                return result_json
 
     async def close(self):
         await self.session.close()
