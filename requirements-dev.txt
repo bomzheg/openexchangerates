@@ -1,7 +1,2 @@
-ipython
-ipdb
-distribute
-nose
-pep8
-pyflakes
-httpretty
+pytest
+pytest-asyncio
