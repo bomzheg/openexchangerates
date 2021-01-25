@@ -1,30 +1,30 @@
 from setuptools import setup
 
 setup(
-    name='openexchangerates',
-    version='0.1.1',
-    description='openexchangerates.org python API client',
+    name='async_openexchangerates',
+    version='0.2.0',
+    description='async openexchangerates.org python API client',
     long_description=open('README.rst').read(),
-    url='https://github.com/metglobal/openexchangerates',
+    url='https://github.com/bomzheg/openexchangerates',
     license='MIT',
-    author='Metglobal',
-    author_email='kadir.pekel@metglobal.com',
+    author='bomzheg',
+    author_email='bomzheg@gmail.com',
     packages=['openexchangerates'],
     install_requires=[
-        'requests',
+        'aiohttp',
     ],
     tests_require=[
-        'httpretty',
-        'mock'
+        'pytest',
+        'pytest-asyncio'
     ],
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Internet :: WWW/HTTP',
     ],
 )
