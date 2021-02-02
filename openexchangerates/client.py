@@ -50,7 +50,7 @@ class OpenExchangeRatesClient(object):
                 }
             }
         """
-        if self.cache_latest.get("timestamp", 0) - time() < self.update_interval:
+        if abs(self.cache_latest.get("timestamp", 0) - time()) < self.update_interval:
             return self.cache_latest
         async with self.session.get(
                 self.ENDPOINT_LATEST,
