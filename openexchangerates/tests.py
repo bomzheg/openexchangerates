@@ -40,6 +40,7 @@ async def test_historical():
         assert (rates['AFN'] == _FIXTURE_HISTORICAL['rates']['AFN']) < float_eq
         assert (rates['ALL'] == _FIXTURE_HISTORICAL['rates']['ALL']) < float_eq
 
+
 @pytest.mark.asyncio
 async def test_currencies():
     """Tests OpenExchangeRateClient.currencies"""

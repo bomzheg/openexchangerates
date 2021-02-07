@@ -4,8 +4,7 @@ from functools import partial
 from time import time
 from typing import Dict, Union
 
-import aiohttp
-
+from .client import OpenExchangeRatesClient
 from openexchangerates.exceptions import OpenExchangeRatesClientException
 from openexchangerates.current_json import json
 
@@ -13,19 +12,17 @@ from openexchangerates.current_json import json
 loads = partial(json.loads, parse_int=Decimal, parse_float=Decimal)
 
 
-class OpenExchangeRatesClient(object):
+class CachedClient(OpenExchangeRatesClient):
     """This class is a client implementation for openexchangerate.org service
-
     """
     BASE_URL = 'http://openexchangerates.org/api'
     ENDPOINT_LATEST = BASE_URL + '/latest.json'
     ENDPOINT_CURRENCIES = BASE_URL + '/currencies.json'
     ENDPOINT_HISTORICAL = BASE_URL + '/historical/{}.json'
 
-    def __init__(self, api_key, update_interval: int = 3600):
+    def __init__(self, api_key, enable_memory_cache: bool = True, update_interval: int = 3600):
         """Convenient constructor"""
-        self.api_key = api_key
-        self.session = aiohttp.ClientSession(json_serialize=json.dumps)
+        super().__init__(api_key, enable_memory_cache=enable_memory_cache, update_interval=update_interval)
         self.update_interval = update_interval
         self.cache_latest = {}
         self.cache_currencies = {}
@@ -52,15 +49,9 @@ class OpenExchangeRatesClient(object):
         """
         if abs(self.cache_latest.get("timestamp", 0) - Decimal(time())) < self.update_interval:
             return self.cache_latest
-        async with self.session.get(
-                self.ENDPOINT_LATEST,
-                params={'base': base, 'app_id': self.api_key}
-        ) as response:
-            result = await response.json(loads=loads)
-            if not response.ok:
-                raise OpenExchangeRatesClientException(result)
-            self.cache_latest = result
-            return result
+        result = await super().latest(base=base)
+        self.cache_latest = result
+        return result
 
     async def currencies(self) -> Dict[str, str]:
         """Fetches current currency data of the service
@@ -124,12 +115,3 @@ class OpenExchangeRatesClient(object):
                     raise OpenExchangeRatesClientException(result_json)
                 self.cache_historical[day.toordinal()] = result_json
                 return result_json
-
-    async def close(self):
-        await self.session.close()
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
